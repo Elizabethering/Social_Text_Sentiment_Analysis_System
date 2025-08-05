@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>情感分析API前端演示</title>
+    <!-- 引入 ECharts 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.3.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.0.0/dist/echarts-wordcloud.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            gap: 20px;
+        }
+        .container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+            width: 100%;
+        }
+        .left-panel { max-width: 450px; }
+        .right-panel { flex-grow: 1; }
+        h1 { color: #1a73e8; text-align: center; margin-bottom: 20px; }
+        textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; resize: vertical; }
+        button { display: block; width: 100%; padding: 12px; background: linear-gradient(45deg, #1a73e8, #4285f4); color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; transition: all 0.3s; }
+        button:hover { box-shadow: 0 4px 15px rgba(26, 115, 232, 0.4); transform: translateY(-2px); }
+        .loader { display: none; margin: 20px auto; border: 5px solid #f3f3f3; border-radius: 50%; border-top: 5px solid #3498db; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result-section { margin-top: 20px; }
+        .result-section h2 { border-bottom: 2px solid #1a73e8; padding-bottom: 5px; color: #1a73e8; }
+        #sentiment-chart { width: 100%; height: 250px; }
+        #wordcloud-chart { width: 100%; height: 400px; background-color: #fdfdfd; border-radius: 8px; }
+        pre { background-color: #e9ecef; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div class="container left-panel">
+        <h1>情感分析引擎</h1>
+        <p>输入文本，体验由后端API驱动的深度情感与关键词分析。</p>
+        <textarea id="text-input" rows="6" placeholder="例如：今天天气真好，我很开心！">今天买的这个手机太垃圾了，服务也很差，非常失望。</textarea>
+        <button onclick="analyzeText()">开始分析</button>
+        <div class="loader" id="loader"></div>
+    </div>
+
+    <div class="container right-panel" id="result-container" style="display:none;">
+        <div class="result-section">
+            <h2>情感分析仪表盘</h2>
+            <div id="sentiment-chart"></div>
+        </div>
+        <div class="result-section">
+            <h2>核心关键词词云</h2>
+            <div id="wordcloud-chart"></div>
+        </div>
+        <div class="result-section">
+            <h2>原始JSON响应 (用于调试)</h2>
+            <pre id="raw-json"></pre>
+        </div>
+    </div>
+
+    <script>
+        // 初始化ECharts实例
+        const sentimentChart = echarts.init(document.getElementById('sentiment-chart'));
+        const wordcloudChart = echarts.init(document.getElementById('wordcloud-chart'));
+
+        async function analyzeText() {
+            const textToAnalyze = document.getElementById('text-input').value;
+            const resultContainer = document.getElementById('result-container');
+            const loader = document.getElementById('loader');
+
+            if (!textToAnalyze.trim()) {
+                alert("请输入要分析的文本！");
+                return;
+            }
+
+            loader.style.display = 'block';
+            resultContainer.style.display = 'none';
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/analyze/advanced', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: textToAnalyze, language: 'chinese' })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`HTTP 错误! 状态: ${response.status} - ${errorData.detail || '未知错误'}`);
+                }
+
+                const data = await response.json();
+
+                // 使用返回的数据更新可视化图表
+                updateSentimentGauge(data.base_sentiment);
+                updateWordCloud(data.advanced_keywords);
+
+                document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
+                resultContainer.style.display = 'block';
+
+            } catch (error) {
+                console.error("请求API时发生错误:", error);
+                alert("无法连接到后端服务，请确保后端服务已在 http://127.0.0.1:8000 正常运行。\n错误详情: " + error.message);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        function updateSentimentGauge(sentimentData) {
+            const sentimentMap = { 'positive': '正面', 'neutral': '中性', 'negative': '负面' };
+            const colorMap = { 'positive': '#28a745', 'neutral': '#ffc107', 'negative': '#dc3545' };
+
+            const option = {
+                series: [{
+                    type: 'gauge',
+                    center: ['50%', '60%'],
+                    startAngle: 200,
+                    endAngle: -20,
+                    min: 0,
+                    max: 1,
+                    splitNumber: 5,
+                    itemStyle: { color: colorMap[sentimentData.sentiment] },
+                    progress: { show: true, width: 18 },
+                    axisLine: { lineStyle: { width: 18 } },
+                    axisTick: { distance: -25, length: 5, lineStyle: { color: '#999' } },
+                    splitLine: { distance: -30, length: 10, lineStyle: { color: '#999' } },
+                    axisLabel: { distance: -20, color: '#999', fontSize: 12 },
+                    detail: {
+                        valueAnimation: true,
+                        offsetCenter: ['0%', '70%'],
+                        formatter: function (value) {
+                            return `{value|${(value * 100).toFixed(0)}}{unit|%}\n{sentiment|${sentimentMap[sentimentData.sentiment]}}`;
+                        },
+                        rich: {
+                            value: { fontSize: 28, fontWeight: 'bolder', color: '#333' },
+                            unit: { fontSize: 14, color: '#999', padding: [0, 0, 0, 2] },
+                            sentiment: { fontSize: 16, color: colorMap[sentimentData.sentiment], paddingTop: 5 }
+                        }
+                    },
+                    data: [{ value: sentimentData.score }]
+                }]
+            };
+            sentimentChart.setOption(option);
+        }
+
+        function updateWordCloud(keywordsData) {
+            const wordCloudData = keywordsData.map(item => ({
+                name: item.keyword,
+                value: Math.round(item.weight * 1000) // ECharts-wordcloud 需要整数权重
+            }));
+
+            const option = {
+                tooltip: { show: true, formatter: params => `${params.name} (权重: ${params.value})` },
+                series: [{
+                    type: 'wordCloud',
+                    shape: 'circle',
+                    sizeRange: [15, 60], // 词语字体大小范围
+                    rotationRange: [-45, 45], // 词语旋转角度范围
+                    textStyle: {
+                        color: function () {
+                            // 随机颜色
+                            return 'rgb(' + [
+                                Math.round(Math.random() * 160),
+                                Math.round(Math.random() * 160),
+                                Math.round(Math.random() * 160)
+                            ].join(',') + ')';
+                        }
+                    },
+                    emphasis: {
+                        focus: 'self',
+                        textStyle: {
+                            shadowBlur: 10,
+                            shadowColor: '#333'
+                        }
+                    },
+                    data: wordCloudData
+                }]
+            };
+            wordcloudChart.setOption(option);
+        }
+    </script>
+
+</body>
+</html>
