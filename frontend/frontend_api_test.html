@@ -3,188 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>情感分析API前端演示</title>
-    <!-- 引入 ECharts 库 -->
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.3.3/dist/echarts.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.0.0/dist/echarts-wordcloud.min.js"></script>
+    <title>舆情分析看板 (联动分析版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 20px;
-            gap: 20px;
+        :root {
+            --primary-color: #5470C6; --background-color: #f5f7fa; --card-background: #ffffff;
+            --text-color: #333; --border-color: #e0e0e0; --shadow: 0 8px 24px rgba(0,0,0,0.05);
+            --positive-color: #67C23A; --negative-color: #F56C6C;
         }
-        .container {
-            background: #fff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-            width: 100%;
-        }
-        .left-panel { max-width: 450px; }
-        .right-panel { flex-grow: 1; }
-        h1 { color: #1a73e8; text-align: center; margin-bottom: 20px; }
-        textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; resize: vertical; }
-        button { display: block; width: 100%; padding: 12px; background: linear-gradient(45deg, #1a73e8, #4285f4); color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; transition: all 0.3s; }
-        button:hover { box-shadow: 0 4px 15px rgba(26, 115, 232, 0.4); transform: translateY(-2px); }
-        .loader { display: none; margin: 20px auto; border: 5px solid #f3f3f3; border-radius: 50%; border-top: 5px solid #3498db; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--background-color); color: var(--text-color); margin: 0; padding: 20px; }
+        .container { max-width: 1800px; margin: 0 auto; }
+        .card { background: var(--card-background); padding: 25px; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 25px; }
+        h1, h3 { text-align: center; color: #2c3e50; margin-top: 0; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: end; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s ease; }
+        button:hover { background: #405aad; box-shadow: 0 4px 15px rgba(84, 112, 198, 0.3); transform: translateY(-2px); }
+        .loader { display: none; margin: 20px auto; border: 5px solid #f3f3f3; border-radius: 50%; border-top: 5px solid var(--primary-color); width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .result-section { margin-top: 20px; }
-        .result-section h2 { border-bottom: 2px solid #1a73e8; padding-bottom: 5px; color: #1a73e8; }
-        #sentiment-chart { width: 100%; height: 250px; }
-        #wordcloud-chart { width: 100%; height: 400px; background-color: #fdfdfd; border-radius: 8px; }
-        pre { background-color: #e9ecef; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; }
+        .charts-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 25px; }
+        .chart-card { background: var(--card-background); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+        .chart-box { width: 100%; height: 400px; flex-grow: 1; }
+        pre { background-color: #e9ecef; padding: 15px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; max-height: 400px; overflow-y: auto; }
     </style>
 </head>
 <body>
 
-    <div class="container left-panel">
-        <h1>情感分析引擎</h1>
-        <p>输入文本，体验由后端API驱动的深度情感与关键词分析。</p>
-        <textarea id="text-input" rows="6" placeholder="例如：今天天气真好，我很开心！">今天买的这个手机太垃圾了，服务也很差，非常失望。</textarea>
-        <button onclick="analyzeText()">开始分析</button>
-        <div class="loader" id="loader"></div>
-    </div>
+    <div class="container">
+        <div class="card">
+            <h1>舆情分析看板 (联动分析版)</h1>
+            <div class="form-grid">
+                <!-- 表单部分与之前版本相同 -->
+                <div class="form-group"><label for="language">语言</label><select id="language"><option value="zh" selected>中文</option><option value="en">英文</option></select></div>
+                <div class="form-group"><label for="model-choice">情感模型</label><select id="model-choice"></select></div>
+                <div class="form-group"><label for="topic">话题</label><input type="text" id="topic" value="迪士尼"></div>
+                <div class="form-group"><label for="start-date">开始日期</label><input type="date" id="start-date" value="2024-07-01"></div>
+                <div class="form-group"><label for="end-date">结束日期</label><input type="date" id="end-date" value="2024-08-01"></div>
+                <div class="form-group"><label for="keyword-method">关键词算法</label><select id="keyword-method"><option value="hybrid_ensemble" selected>混合集成 (Best)</option><option value="pos_guided_keybert">词性引导</option><option value="hybrid">混合模式</option><option value="keybert">KeyBERT</option><option value="textrank">TextRank</option></select></div>
+            </div>
+            <div style="margin-top: 20px;"><button onclick="runAnalysis()">开始分析</button><div class="loader" id="loader"></div></div>
+        </div>
 
-    <div class="container right-panel" id="result-container" style="display:none;">
-        <div class="result-section">
-            <h2>情感分析仪表盘</h2>
-            <div id="sentiment-chart"></div>
-        </div>
-        <div class="result-section">
-            <h2>核心关键词词云</h2>
-            <div id="wordcloud-chart"></div>
-        </div>
-        <div class="result-section">
-            <h2>原始JSON响应 (用于调试)</h2>
-            <pre id="raw-json"></pre>
+        <div id="result-container" style="display:none;">
+            <div class="charts-container">
+                <div class="chart-card"><div class="chart-box" id="sentiment-pie-chart"></div></div>
+                <div class="chart-card"><div class="chart-box" id="sentiment-trend-chart"></div></div>
+                <div class="chart-card"><div class="chart-box" id="hot-topics-chart"></div></div>
+            </div>
+            <!-- 【新增】联动分析词云图区域 -->
+            <div class="charts-container" style="margin-top: 25px;">
+                <div class="chart-card"><h3>优点关键词 (Positive)</h3><div class="chart-box" id="positive-wordcloud-chart"></div></div>
+                <div class="chart-card"><h3>缺点关键词 (Negative)</h3><div class="chart-box" id="negative-wordcloud-chart"></div></div>
+                <div class="chart-card"><h3>综合关键词 (Overall)</h3><div class="chart-box" id="overall-wordcloud-chart"></div></div>
+            </div>
+            <div class="card" style="margin-top: 25px;">
+                <h2>原始JSON响应 (用于调试)</h2><pre id="raw-json"></pre>
+            </div>
         </div>
     </div>
 
     <script>
-        // 初始化ECharts实例
-        const sentimentChart = echarts.init(document.getElementById('sentiment-chart'));
-        const wordcloudChart = echarts.init(document.getElementById('wordcloud-chart'));
+        // 初始化所有ECharts实例
+        const pieChart = echarts.init(document.getElementById('sentiment-pie-chart'));
+        const sentimentTrendChart = echarts.init(document.getElementById('sentiment-trend-chart'));
+        const hotTopicsChart = echarts.init(document.getElementById('hot-topics-chart'));
+        const positiveWordcloud = echarts.init(document.getElementById('positive-wordcloud-chart'));
+        const negativeWordcloud = echarts.init(document.getElementById('negative-wordcloud-chart'));
+        const overallWordcloud = echarts.init(document.getElementById('overall-wordcloud-chart'));
 
-        async function analyzeText() {
-            const textToAnalyze = document.getElementById('text-input').value;
+        const allCharts = [pieChart, sentimentTrendChart, hotTopicsChart, positiveWordcloud, negativeWordcloud, overallWordcloud];
+        window.onresize = () => allCharts.forEach(chart => chart.resize());
+
+        // 动态模型选择逻辑 (保持不变)
+        const languageSelect = document.getElementById('language');
+        const modelSelect = document.getElementById('model-choice');
+        const modelOptions = { 'zh': [{ value: 'bert', text: 'BERT (中文)' }, { value: 'snownlp', text: 'SnowNLP' }], 'en': [{ value: 'bert', text: 'BERT (English)' }] };
+        function updateModelOptions() { const lang = languageSelect.value; modelSelect.innerHTML = ''; modelOptions[lang].forEach(opt => { const option = document.createElement('option'); option.value = opt.value; option.textContent = opt.text; modelSelect.appendChild(option); }); }
+        languageSelect.addEventListener('change', updateModelOptions);
+        updateModelOptions();
+
+        async function runAnalysis() {
+            // ... (获取表单数据和显示加载动画的逻辑保持不变) ...
             const resultContainer = document.getElementById('result-container');
             const loader = document.getElementById('loader');
-
-            if (!textToAnalyze.trim()) {
-                alert("请输入要分析的文本！");
-                return;
-            }
-
+            const requestPayload = { language: languageSelect.value, topic: document.getElementById('topic').value, start_date: document.getElementById('start-date').value, end_date: document.getElementById('end-date').value, model_choice: modelSelect.value, keyword_method: document.getElementById('keyword-method').value, top_k_keywords: 50 };
+            if (!requestPayload.topic.trim() || !requestPayload.start_date || !requestPayload.end_date) { alert("请填写所有必填字段！"); return; }
             loader.style.display = 'block';
             resultContainer.style.display = 'none';
+            allCharts.forEach(chart => chart.showLoading());
 
             try {
-                const response = await fetch('http://127.0.0.1:8000/analyze/advanced', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: textToAnalyze, language: 'chinese' })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`HTTP 错误! 状态: ${response.status} - ${errorData.detail || '未知错误'}`);
-                }
-
+                const response = await fetch('http://127.0.0.1:8001/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestPayload) });
+                if (!response.ok) { const errorData = await response.json(); throw new Error(`HTTP 错误! 状态: ${response.status} - ${errorData.detail || '未知错误'}`); }
                 const data = await response.json();
-
-                // 使用返回的数据更新可视化图表
-                updateSentimentGauge(data.base_sentiment);
-                updateWordCloud(data.advanced_keywords);
-
                 document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
                 resultContainer.style.display = 'block';
 
+                // --- 【核心修改】调用新的图表渲染函数 ---
+                updateSentimentPie(data.sentiment_pie_chart, data.topic_info.total_texts);
+                updateSentimentTrendChart(data.sentiment_trend_chart);
+                updateHotTopicsChart(data.hot_topics_trend_chart);
+                // 渲染三个词云图
+                updateWordCloud(overallWordcloud, "综合关键词", data.overall_word_cloud);
+                updateWordCloud(positiveWordcloud, "优点关键词", data.positive_keywords, ['#67C23A', '#95d475']);
+                updateWordCloud(negativeWordcloud, "缺点关键词", data.negative_keywords, ['#F56C6C', '#f89898']);
+
             } catch (error) {
                 console.error("请求API时发生错误:", error);
-                alert("无法连接到后端服务，请确保后端服务已在 http://127.0.0.1:8000 正常运行。\n错误详情: " + error.message);
+                alert("分析失败，请检查后端服务是否正常运行，或查看浏览器控制台 (F12) 获取详情。\n错误: " + error.message);
             } finally {
                 loader.style.display = 'none';
+                allCharts.forEach(chart => chart.hideLoading());
             }
         }
 
-        function updateSentimentGauge(sentimentData) {
-            const sentimentMap = { 'positive': '正面', 'neutral': '中性', 'negative': '负面' };
-            const colorMap = { 'positive': '#28a745', 'neutral': '#ffc107', 'negative': '#dc3545' };
-
-            const option = {
-                series: [{
-                    type: 'gauge',
-                    center: ['50%', '60%'],
-                    startAngle: 200,
-                    endAngle: -20,
-                    min: 0,
-                    max: 1,
-                    splitNumber: 5,
-                    itemStyle: { color: colorMap[sentimentData.sentiment] },
-                    progress: { show: true, width: 18 },
-                    axisLine: { lineStyle: { width: 18 } },
-                    axisTick: { distance: -25, length: 5, lineStyle: { color: '#999' } },
-                    splitLine: { distance: -30, length: 10, lineStyle: { color: '#999' } },
-                    axisLabel: { distance: -20, color: '#999', fontSize: 12 },
-                    detail: {
-                        valueAnimation: true,
-                        offsetCenter: ['0%', '70%'],
-                        formatter: function (value) {
-                            return `{value|${(value * 100).toFixed(0)}}{unit|%}\n{sentiment|${sentimentMap[sentimentData.sentiment]}}`;
-                        },
-                        rich: {
-                            value: { fontSize: 28, fontWeight: 'bolder', color: '#333' },
-                            unit: { fontSize: 14, color: '#999', padding: [0, 0, 0, 2] },
-                            sentiment: { fontSize: 16, color: colorMap[sentimentData.sentiment], paddingTop: 5 }
-                        }
-                    },
-                    data: [{ value: sentimentData.score }]
-                }]
-            };
-            sentimentChart.setOption(option);
+        // --- 图表渲染函数 ---
+        function updateSentimentPie(pieData, total) {
+            const option = { title: { text: '情感分布', subtext: `总计: ${total} 条`, left: 'center' }, tooltip: { trigger: 'item' }, legend: { orient: 'vertical', left: 'left' }, series: [{ name: '情感占比', type: 'pie', radius: ['40%', '70%'], data: [{ value: pieData.positive, name: '正面', itemStyle: { color: '#67C23A' } }, { value: pieData.neutral, name: '中性', itemStyle: { color: '#E6A23C' } }, { value: pieData.negative, name: '负面', itemStyle: { color: '#F56C6C' } }] }] };
+            pieChart.setOption(option, true);
         }
 
-        function updateWordCloud(keywordsData) {
-            const wordCloudData = keywordsData.map(item => ({
-                name: item.keyword,
-                value: Math.round(item.weight * 1000) // ECharts-wordcloud 需要整数权重
-            }));
-
+        function updateWordCloud(chartInstance, title, keywordsData, colorRange) {
             const option = {
-                tooltip: { show: true, formatter: params => `${params.name} (权重: ${params.value})` },
+                title: { text: title, left: 'center', show: false }, // 标题由卡片提供
+                tooltip: { show: true, formatter: params => `${params.name} (权重: ${params.value.toFixed(4)})` },
                 series: [{
-                    type: 'wordCloud',
-                    shape: 'circle',
-                    sizeRange: [15, 60], // 词语字体大小范围
-                    rotationRange: [-45, 45], // 词语旋转角度范围
+                    type: 'wordCloud', shape: 'circle', sizeRange: [15, 80], rotationRange: [-60, 60],
                     textStyle: {
-                        color: function () {
-                            // 随机颜色
-                            return 'rgb(' + [
-                                Math.round(Math.random() * 160),
-                                Math.round(Math.random() * 160),
-                                Math.round(Math.random() * 160)
-                            ].join(',') + ')';
-                        }
+                        color: colorRange ? () => colorRange[Math.floor(Math.random() * colorRange.length)] : () => `rgb(${Math.floor(Math.random() * 180)}, ${Math.floor(Math.random() * 180)}, ${Math.floor(Math.random() * 180)})`
                     },
-                    emphasis: {
-                        focus: 'self',
-                        textStyle: {
-                            shadowBlur: 10,
-                            shadowColor: '#333'
-                        }
-                    },
-                    data: wordCloudData
+                    data: keywordsData.map(item => ({ name: item.word, value: item.weight }))
                 }]
             };
-            wordcloudChart.setOption(option);
+            chartInstance.setOption(option, true);
+        }
+
+        function updateSentimentTrendChart(trendData) {
+            const option = { title: { text: '话题情绪趋势', left: 'center' }, tooltip: { trigger: 'axis' }, legend: { top: 'bottom' }, grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true }, xAxis: { type: 'category', boundaryGap: false, data: trendData.map(item => item.date) }, yAxis: { type: 'value' }, series: [{ name: '正面', type: 'line', smooth: true, data: trendData.map(item => item.positive_count), itemStyle: { color: '#67C23A' } }, { name: '中性', type: 'line', smooth: true, data: trendData.map(item => item.neutral_count), itemStyle: { color: '#E6A23C' } }, { name: '负面', type: 'line', smooth: true, data: trendData.map(item => item.negative_count), itemStyle: { color: '#F56C6C' } }] };
+            sentimentTrendChart.setOption(option, true);
+        }
+
+        function updateHotTopicsChart(chartData) {
+            const topics = [...new Set(chartData.map(item => item.topic))];
+            const dates = [...new Set(chartData.map(item => item.date))].sort();
+            const series = topics.map(topic => ({ name: topic, type: 'line', smooth: true, data: dates.map(date => (chartData.find(d => d.date === date && d.topic === topic) || {}).hotness || 0) }));
+            const option = { title: { text: '全时段热点趋势', left: 'center' }, tooltip: { trigger: 'axis' }, legend: { top: 'bottom', type: 'scroll' }, grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value' }, dataZoom: [{ type: 'inside' }, { type: 'slider' }], series: series };
+            hotTopicsChart.setOption(option, true);
         }
     </script>
-
 </body>
 </html>

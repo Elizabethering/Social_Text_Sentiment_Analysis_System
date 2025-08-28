@@ -1,0 +1,11 @@
+{
+    "Dict_AdvancedRules": 0.3793428076669976,
+    "SnowNLP_Baseline": 0.367578110063507,
+    "Dictionary_Rules": 0.1228694732508077,
+    "Naive_Bayes": 0.393629393770705,
+    "SVM": 0.45012963823191243,
+    "LightGBM": 0.510418394990284,
+    "Stacking_Ensemble": 0.5337858002406738,
+    "BERT_Finetuned": 0.7396913925767524,
+    "Stacking_Ensemble_Updated": 0.655896141616103
+}
