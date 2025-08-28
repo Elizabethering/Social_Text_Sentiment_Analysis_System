@@ -50,7 +50,7 @@
 
 ### 1\. 环境准备与依赖安装
 
-首先，请确保您已安装 Python 3.8+。然后，在项目根目录下创建一个虚拟环境并安装所有依赖。
+首先，请确保您已安装 Python 3.8+(最好是Python 3.11.9)。然后，在项目根目录下创建一个虚拟环境并安装所有依赖。
 
 ```bash
 # 创建虚拟环境 (推荐)
@@ -128,6 +128,7 @@ uvicorn main:app --host 127.0.0.1 --port 8001 --reload
 │   └── exp_6_keyword_comparison_fixed.py # 关键词提取算法对比
 ├── reports/                         # 存储实验报告和图表
 │   └── figures/                     # 存储实验生成的图表
+├── config.py                        # 全局配置文件，用于定义路径和常量
 ├── locustfile.py                    # 用于 API 性能测试的 locust 脚本
 └── all_models_performance.json      # 比较各模型性能的JSON数据
 ```
